@@ -1,85 +1,99 @@
-#include "Graph.h"
 #include <iostream>
+#include "Graph.h"
 
-Edge::Edge(): neighbor(0), weight(0) {}
+AdjList::AdjList() : count(0) {}
 
-Edge::Edge(int n, int w): neighbor(n), weight(w) {}
-Edge::~Edge() {}
+bool AdjList::addNeighbor(int node, int distance) {
+    if (count < MAX_NEIGHBORS) {
+        neighbors[count++] = {node, distance};
+        return true;
+    }
+    return false;
+}
 
-Graph::Graph() {
-    for (int i = 0; i < 100; ++i) {
-        edgeCount[i] = 0;
+const Neighbor* AdjList::getNeighbors() const {
+    return neighbors;
+}
+
+int AdjList::getCount() const {
+    return count;
+}
+
+
+void DeliveryGraph::addEdge(int from, int to, int distance) {
+    AdjList neighbors;
+    if (!adjListMap.find(from, neighbors)) {
+        neighbors = AdjList();
+    }
+    if (neighbors.addNeighbor(to, distance)) {
+        adjListMap.insert(from, neighbors);
     }
 }
 
-void Graph::addEdge(int u, int v, int weight) {
-    Edge* edges = new Edge[EDGES];
-    if (!adjList.find(u, edges)) {
-        for (int i = 0; i < EDGES; ++i) {
-            edges[i] = Edge();
-        }
+bool DeliveryGraph::getNeighbors(int node, Neighbor*& neighbors, int& count) {
+    AdjList adjList;
+    if (adjListMap.find(node, adjList)) {
+        neighbors = const_cast<Neighbor*>(adjList.getNeighbors());
+        count = adjList.getCount();
+        return true;
     }
-
-    if (edgeCount[u] < EDGES) {
-        edges[edgeCount[u]++] = Edge(v, weight);
-        adjList.insert(u, edges);
-    }
+    return false;
 }
 
-void Graph::Deikstra(int start, int end) {
-    constexpr int INF = 1e9;
-    int distances[100];
-    int previous[100];
-    bool visited[100] = {false};
+void DeliveryGraph::dijkstra(int start, int end) {
+    const int MAX_NODES = 100; // Предполагаем максимальное количество узлов
+    int distances[MAX_NODES];
+    bool visited[MAX_NODES] = {false};
+    int previous[MAX_NODES];
 
-    for (int i = 0; i < 100; ++i) {
-        distances[i] = INF;
+    // Инициализация
+    for (int i = 0; i < MAX_NODES; i++) {
+        distances[i] = INT_MAX;
         previous[i] = -1;
     }
-
     distances[start] = 0;
 
-    for (int i = 0; i < 100; ++i) {
-        int minDist = INF;
-        int current = -1;
-
-        for (int j = 0; j < 100; ++j) {
-            if (!visited[j] && distances[j] < minDist) {
-                minDist = distances[j];
-                current = j;
+    for (int count = 0; count < MAX_NODES - 1; count++) {
+        // Находим вершину с минимальным расстоянием
+        int minDistance = INT_MAX, minIndex = -1;
+        for (int v = 0; v < MAX_NODES; v++) {
+            if (!visited[v] && distances[v] <= minDistance) {
+                minDistance = distances[v];
+                minIndex = v;
             }
         }
 
-        if (current == -1) break;
+        // Если не нашли доступную вершину, выходим
+        if (minIndex == -1) break;
 
-        visited[current] = true;
+        visited[minIndex] = true;
 
-        Edge* edges = nullptr;
-        if (adjList.find(current, edges)) {
-            for (int j = 0; j < edgeCount[current]; ++j) {
-                Edge& edge = edges[j];
-                int newDist = distances[current] + edge.weight;
-
-                if (newDist < distances[edge.neighbor]) {
-                    distances[edge.neighbor] = newDist;
-                    previous[edge.neighbor] = current;
-                }
+        // Обновляем расстояния до соседних вершин
+        Neighbor* neighbors;
+        int neighborCount;
+        if (getNeighbors(minIndex, neighbors, neighborCount)) {
+            for (int i = 0; i < neighborCount; i++) {
+                int v = neighbors[i].node;
+                int weight = neighbors[i].distance;
+                if (!visited[v] && distances[minIndex] != INT_MAX
+                    && distances[minIndex] + weight < distances[v]) {
+                    distances[v] = distances[minIndex] + weight;
+                    previous[v] = minIndex;
+                    }
             }
         }
     }
 
-    int path[100];
-    int pathLength = 0;
-
-    for (int at = end; at != -1; at = previous[at]) {
-        path[pathLength++] = at;
-    }
-
-    for (int i = pathLength - 1; i >= 0; --i) {
-        if (i != 0) {
-            std::cout << path[i] << " -> ";
-        } else {
-            std::cout << path[i] << std::endl;
+    if (distances[end] == INT_MAX) {
+        std::cout << "Нет пути между " << start << " и " << end << std::endl;
+    } else {
+        std::cout << "Кратчайшее расстояние от " << start << " до " << end << ": " << distances[end] << std::endl;
+        std::cout << "Путь: ";
+        int current = end;
+        while (current != -1) {
+            std::cout << current << " ";
+            current = previous[current];
         }
+        std::cout << std::endl;
     }
 }
